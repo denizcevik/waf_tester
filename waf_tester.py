@@ -4,7 +4,7 @@
 
 import sys
 import time
-import httplib
+import http.client as httplib
 import socket
 import getopt
 
@@ -20,7 +20,7 @@ string = ""
 waf_behavior = 0
 waf_timeout = 0
 print_related = 2 # print ALL. 0 means print Blocked and 1 means print Bypassed
-template = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:get="http://www.myserver.com/assets/smp/uum/GetBillingAccounts">
+template = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:get="http://www.myserver.com/assets/smp/uum/123">
    <soapenv:Header/>
    <soapenv:Body>
            %(key)s
@@ -48,15 +48,14 @@ def send_webrequests(hostname,protocol,port,attack_pattern,vvar,n_header):
 		        
 	if httpmethod == "POST":
                 if issoap == 1:                        
-                        headers = {'Accept-Encoding': 'gzip,deflate', 'Content-type': 'text/xml;charset=UTF-8', 'SOAPAction': 'GetBillingAccounts', 'User-Agent': useragent, 'Host':'www.myvulnerablewebapplicationserver.com'}
+                        headers = {'Accept-Encoding': 'gzip,deflate', 'Content-type': 'text/xml;charset=UTF-8', 'SOAPAction': '123', 'User-Agent': useragent}
                         web_connection.request("POST", posturl, attack_pattern, headers)
                 else:
-                        headers = {'Accept-Encoding': 'gzip,deflate', 'Content-type': 'application/x-www-form-urlencoded','User-Agent': useragent,'Host':'www.myvulnerablewebapplicationserver.com'}
+                        headers = {'Accept-Encoding': 'gzip,deflate', 'Content-type': 'application/x-www-form-urlencoded','User-Agent': useragent}
                         web_connection.request("POST", posturl, attack_pattern, headers)                        
-        else:
+	else:
                 web_connection.putrequest("GET",attack_pattern)
-                web_connection.putheader("User-Agent",useragent)                
-                web_connection.putheader("Host",'www.myvulnerablewebapplicationserver.com')                
+                web_connection.putheader("User-Agent",useragent)               
                 if n_header != "":
                         h={}
                         (h['header'], h['value'])=n_header.split(":",1)
@@ -66,7 +65,7 @@ def send_webrequests(hostname,protocol,port,attack_pattern,vvar,n_header):
         	response = web_connection.getresponse()
 	except socket.timeout:
 		data="blockedbywaforips"
-	except socket.error,err:
+	except socket.error(err):
 		error_code=int(err.args[0])
 		if error_code == 104:
 			data="rejectedbywaforips"
@@ -83,14 +82,14 @@ def send_packet(hostname,protocol,port,app,w_beh,c_var,st):
 	global body
 	try:
                 attack_data_file=open(test_db)
-        except:
+	except:
                 print("[*] Attack database file could not be found.")
                 exit()
 	print("[+] Sending HTTP requests....")
 	for each_attack_pattern in attack_data_file:
-                s={}                
+		s={}                
 		line=line+1
-                (s['description'], s['attack_pattern'], s['type'])=each_attack_pattern.split("##")
+		(s['description'], s['attack_pattern'], s['type'])=each_attack_pattern.split("##")
 		attack_description=s['description'].rstrip()
 		a_pattern_raw=s['attack_pattern'].rstrip()
 		insert_nh=""
@@ -112,7 +111,7 @@ def send_packet(hostname,protocol,port,app,w_beh,c_var,st):
                         a_pattern=template % {'key':str(s['attack_pattern']).rstrip()}
                         issoap = 1
                         a_pattern_to_log = str(s['attack_pattern']).rstrip()
-                elif code == 4:
+		elif code == 4:
                         httpmethod = "POST"                        
                         posturl = ("/"+str(app))
                         a_pattern = "id="+str(s['attack_pattern']).rstrip()
@@ -122,13 +121,13 @@ def send_packet(hostname,protocol,port,app,w_beh,c_var,st):
 		if w_beh == 0:
 			response=send_webrequests(hostname,protocol,port,a_pattern,c_var,insert_nh)
 			time.sleep(st)
-	        	if response != "blockedbywaforips":
+			if response != "blockedbywaforips":
 				bypassed=bypassed+1
 				if print_related == 1 or print_related == 2:
-                        		print("  [+] "+attack_description+" "+a_pattern_to_log)
-        		else:
-                                if print_related == 0 or print_related == 2:
-                                        print("  [-] "+attack_description+" "+a_pattern_to_log)
+					print("  [+] "+attack_description+" "+a_pattern_to_log)
+			else:
+				if print_related == 0 or print_related == 2:
+					print("  [-] "+attack_description+" "+a_pattern_to_log)
 		if w_beh == 1:
 			var=default_timeout
 			response=send_webrequests(hostname,protocol,port,a_pattern,var,insert_nh)
@@ -136,21 +135,21 @@ def send_packet(hostname,protocol,port,app,w_beh,c_var,st):
 			if response.find(c_var) == -1:
 				bypassed=bypassed+1
 				if print_related == 1 or print_related == 2:
-        				print("  [+] "+attack_description+" "+a_pattern_to_log)
+					print("  [+] "+attack_description+" "+a_pattern_to_log)
 			else:
-                                if print_related == 0 or print_related == 2:
-                                        print("  [-] "+attack_description+" "+a_pattern_to_log)
+				if print_related == 0 or print_related == 2:
+					print("  [-] "+attack_description+" "+a_pattern_to_log)
 		if w_beh == 2:
-                        var=default_timeout
-                        response=send_webrequests(hostname,protocol,port,a_pattern,var,insert_nh)
-                        time.sleep(st)
-                        if response != "rejectedbywaforips":
+			var=default_timeout
+			response=send_webrequests(hostname,protocol,port,a_pattern,var,insert_nh)
+			time.sleep(st)
+			if response != "rejectedbywaforips":
 				bypassed=bypassed+1
 				if print_related == 1 or print_related == 2:
-                                        print("  [+] "+attack_description+" "+a_pattern_to_log)
-                        else:
-                                if print_related == 0 or print_related == 2:
-                                        print("  [-] "+attack_description+" "+a_pattern_to_log)
+					print("  [+] "+attack_description+" "+a_pattern_to_log)
+			else:
+				if print_related == 0 or print_related == 2:
+					print("  [-] "+attack_description+" "+a_pattern_to_log)
 	attack_data_file.close()
 	sr=(int(line)-int(bypassed))*100/int(line)
 	print("[+] "+str(bypassed)+" of "+str(line)+" attacks could not be detected by WAF/IPS")
@@ -180,19 +179,19 @@ def parse_url(u):
 			hostname=convars['host']
 		else:
 			print("  [-] Unrecognized protocol, url must be started with http or https...\n")
-                	exit()
+			exit()
 	else:
 		if convars['proto'] == "http:":
-                        portnumber=hostvars['port']
-                        protocol="http"
+			portnumber=hostvars['port']
+			protocol="http"
 			hostname=hostvars['hostt']
-                elif convars['proto'] == "https:":
-                        portnumber=hostvars['port']
-                        protocol="ssl"
+		elif convars['proto'] == "https:":
+			portnumber=hostvars['port']
+			protocol="ssl"
 			hostname=hostvars['hostt']
-                else:
-                        print("  [-] Unrecognized protocol, url must be started with http or https...\n")
-                        exit()
+		else:
+			print("  [-] Unrecognized protocol, url must be started with http or https...\n")
+			exit()
 
 	application=convars['app']
 	return(hostname,application,int(portnumber),protocol)
@@ -233,10 +232,10 @@ else:
 			url=str(arg)
 		elif opt in ("-o","--output"):
 			rel=str(arg)
-                        if rel == "Blocked":
-                                print_related = 0
-                        elif rel == "Bypassed":
-                                print_related = 1
+			if rel == "Blocked":
+				print_related = 0
+			elif rel == "Bypassed":
+				print_related = 1
 		elif opt in ("-t","--type"):
 			beh=str(arg)
 			if beh == "Block":
@@ -252,7 +251,7 @@ else:
 					continue
 				else:
 					print(" [-] String value required for WAF Response. use --string option")
-                                        exit()	
+					exit()	
 			elif beh == "Reset":
 				waf_behavior=2
 			else:
@@ -278,9 +277,9 @@ if check_connection(hostname,portnumber) == "Success":
 	if waf_behavior == 1:
 		print("[+] WAF/IPS action = CUSTOM HTTP RESPONSE")                	
 		send_packet(hostname,proto,portnumber,application,waf_behavior,match_string,sleep_time)
-        if waf_behavior == 2:
+	if waf_behavior == 2:
 		print("[*] WAF/IPS action = TCP RESET")
-                send_packet(hostname,proto,portnumber,application,waf_behavior,"null",sleep_time)
+		send_packet(hostname,proto,portnumber,application,waf_behavior,"null",sleep_time)
 	else:
 		print("[-] Connection Error") 
 
